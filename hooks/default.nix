@@ -1,9 +1,19 @@
 { python, stdenv, makeSetupHook, pkgs, lib }:
 let
-  pythonOnBuildForHost = python.pythonOnBuildForHost or python.pythonForBuild;
+  py = python.override {
+    # remove when nixpkgs staging-next contains the change to sphinx to depend
+    # on tomli for python < 3.11
+    packageOverrides = pyfinal: pyprev: {
+      sphinx = pyprev.sphinx.overrideAttrs (old: {
+        propagatedBuildInputs = old.propagatedBuildInputs or [ ]
+          ++ lib.optionals (pyfinal.python.pythonOlder "3.11") [ pyfinal.tomli ];
+      });
+    };
+  };
+  pythonOnBuildForHost = py.pythonOnBuildForHost or py.pythonForBuild;
   inherit (pythonOnBuildForHost.pkgs) callPackage;
   pythonInterpreter = pythonOnBuildForHost.interpreter;
-  pythonSitePackages = python.sitePackages;
+  pythonSitePackages = py.sitePackages;
 
   nonOverlayedPython = (pkgs.python3.pythonOnBuildForHost or pkgs.python3.pythonForBuild).withPackages (ps: [ ps.tomlkit ]);
   makeRemoveSpecialDependenciesHook =
@@ -106,7 +116,7 @@ in
           # Python pre 3.9 does not contain the ast.unparse method.
           # We can extract this from Python 3.8 for any
           unparser = stdenv.mkDerivation {
-            name = "${python.name}-astunparse";
+            name = "${py.name}-astunparse";
             inherit (python) src;
             dontConfigure = true;
             dontBuild = true;
@@ -117,7 +127,7 @@ in
             '';
           };
 
-          pythonPath = lib.optional (lib.versionOlder python.version "3.9") unparser;
+          pythonPath = lib.optional (lib.versionOlder py.version "3.9") unparser;
         in
         makeSetupHook
           {
