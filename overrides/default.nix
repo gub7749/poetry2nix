@@ -69,6 +69,7 @@ let
       );
 
   notNull = x: !(builtins.isNull x);
+  sharedLibExt = pkgs.stdenv.hostPlatform.extensions.sharedLibrary;
   removePackagesByName = packages: packagesToRemove:
     let
       namesToRemove = map lib.getName (lib.filter notNull packagesToRemove);
@@ -902,17 +903,18 @@ lib.composeManyExtensions [
 
       fastparquet = prev.fastparquet.overridePythonAttrs (
         old: {
-          buildInputs = (old.buildInputs or [ ]) ++ [ final.pytest-runner ];
+          buildInputs = old.buildInputs or [ ] ++ [ final.pytest-runner ];
         }
       );
 
-      file-magic = prev.file-magic.overridePythonAttrs (
-        _old: {
-          postPatch = ''
-            substituteInPlace magic.py --replace "find_library('magic')" "'${pkgs.file}/lib/libmagic${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}'"
-          '';
-        }
-      );
+      file-magic = prev.file-magic.overridePythonAttrs (_: {
+        postPatch = ''
+          substituteInPlace magic.py \
+            --replace \
+            "find_library('magic')" \
+            "'${pkgs.file}/lib/libmagic${sharedLibExt}'"
+        '';
+      });
 
       fiona = prev.fiona.overridePythonAttrs (
         old: {
@@ -1037,7 +1039,7 @@ lib.composeManyExtensions [
         old: {
           preBuild = (old.preBuild or "") + ''
             substituteInPlace h3/h3.py \
-              --replace "'{}/{}'.format(_dirname, libh3_path)" '"${pkgs.h3}/lib/libh3${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}"'
+              --replace "'{}/{}'.format(_dirname, libh3_path)" '"${pkgs.h3}/lib/libh3${sharedLibExt}"'
           '';
         }
       );
@@ -1079,7 +1081,7 @@ lib.composeManyExtensions [
           postPatch = ''
             found=
             for name in libhidapi-hidraw libhidapi-libusb libhidapi-iohidmanager libhidapi; do
-              full_path=${pkgs.hidapi.out}/lib/$name${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}
+              full_path=${pkgs.hidapi.out}/lib/$name${sharedLibExt}
               if test -f $full_path; then
                 found=t
                 sed -i -e "s|'$name\..*'|'$full_path'|" hid/__init__.py
@@ -1393,7 +1395,7 @@ lib.composeManyExtensions [
 
         postPatch = ''
           substituteInPlace libarchive/library.py --replace \
-            "_FILEPATH = find_and_load_library()" "_FILEPATH = '${pkgs.libarchive.lib}/lib/libarchive${stdenv.hostPlatform.extensions.sharedLibrary}'"
+            "_FILEPATH = find_and_load_library()" "_FILEPATH = '${pkgs.libarchive.lib}/lib/libarchive${sharedLibExt}'"
         '';
       });
 
@@ -2414,11 +2416,11 @@ lib.composeManyExtensions [
           postPatch = (old.postPatch or "") + ''
             substituteInPlace pymediainfo/__init__.py \
               --replace "libmediainfo.0.dylib" \
-                        "${pkgs.libmediainfo}/lib/libmediainfo.0${stdenv.hostPlatform.extensions.sharedLibrary}" \
+                        "${pkgs.libmediainfo}/lib/libmediainfo.0${sharedLibExt}" \
               --replace "libmediainfo.dylib" \
-                        "${pkgs.libmediainfo}/lib/libmediainfo${stdenv.hostPlatform.extensions.sharedLibrary}" \
+                        "${pkgs.libmediainfo}/lib/libmediainfo${sharedLibExt}" \
               --replace "libmediainfo.so.0" \
-                        "${pkgs.libmediainfo}/lib/libmediainfo${stdenv.hostPlatform.extensions.sharedLibrary}.0"
+                        "${pkgs.libmediainfo}/lib/libmediainfo${sharedLibExt}.0"
           '';
         }
       );
@@ -2529,7 +2531,7 @@ lib.composeManyExtensions [
             '' else ''
               substituteInPlace smartcard/scard/winscarddll.c \
                 --replace "libpcsclite.so.1" \
-                          "${lib.getLib pcsclite}/lib/libpcsclite${stdenv.hostPlatform.extensions.sharedLibrary}"
+                          "${lib.getLib pcsclite}/lib/libpcsclite${sharedLibExt}"
             '';
           propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ (
             if withApplePCSC then [ PCSC ] else [ pcsclite ]
@@ -2901,8 +2903,7 @@ lib.composeManyExtensions [
 
       python-magic = prev.python-magic.overridePythonAttrs (old:
         let
-          inherit (pkgs.stdenv.hostPlatform.extensions) sharedLibrary;
-          libPath = "${lib.getLib pkgs.file}/lib/libmagic${sharedLibrary}";
+          libPath = "${lib.getLib pkgs.file}/lib/libmagic${sharedLibExt}";
           fixupScriptText = ''
             substituteInPlace magic/loader.py \
               --replace "find_library('magic')" "'${libPath}'"
@@ -2973,7 +2974,7 @@ lib.composeManyExtensions [
       pyusb = prev.pyusb.overridePythonAttrs (
         _old: {
           postPatch = ''
-            libusb=${pkgs.libusb1.out}/lib/libusb-1.0${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}
+            libusb=${pkgs.libusb1.out}/lib/libusb-1.0${sharedLibExt}
             test -f $libusb || { echo "ERROR: $libusb doesn't exist, please update/fix this build expression."; exit 1; }
             sed -i -e "s|find_library=None|find_library=lambda _:\"$libusb\"|" usb/backend/libusb1.py
           '';
@@ -3156,7 +3157,7 @@ lib.composeManyExtensions [
         postPatch = ''
           substituteInPlace rtree/finder.py --replace \
             "find_library('spatialindex_c')" \
-            "'${pkgs.libspatialindex}/lib/libspatialindex_c${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}'"
+            "'${pkgs.libspatialindex}/lib/libspatialindex_c${sharedLibExt}'"
         '';
       });
 
@@ -3406,9 +3407,9 @@ lib.composeManyExtensions [
         old: {
           nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.geos ];
 
-          GEOS_LIBRARY_PATH = "${pkgs.geos}/lib/libgeos_c${stdenv.hostPlatform.extensions.sharedLibrary}";
+          GEOS_LIBRARY_PATH = "${pkgs.geos}/lib/libgeos_c${sharedLibExt}";
 
-          GEOS_LIBC = lib.optionalString (!stdenv.isDarwin) "${lib.getLib stdenv.cc.libc}/lib/libc${stdenv.hostPlatform.extensions.sharedLibrary}.6";
+          GEOS_LIBC = lib.optionalString (!stdenv.isDarwin) "${lib.getLib stdenv.cc.libc}/lib/libc${sharedLibExt}.6";
 
           # Fix library paths
           postPatch = lib.optionalString (!(old.src.isWheel or false)) (old.postPatch or "" + ''
@@ -3447,15 +3448,16 @@ lib.composeManyExtensions [
 
       soundfile = prev.soundfile.overridePythonAttrs (_old: {
         postPatch = ''
-          substituteInPlace soundfile.py --replace "_find_library('sndfile')" "'${pkgs.libsndfile.out}/lib/libsndfile${stdenv.hostPlatform.extensions.sharedLibrary}'"
+          substituteInPlace soundfile.py \
+            --replace "_find_library('sndfile')" "'${pkgs.libsndfile.out}/lib/libsndfile${sharedLibExt}'"
         '';
       });
 
       sqlmodel = prev.sqlmodel.overridePythonAttrs (old: {
+        # sqlmodel's pyproject.toml lists version = "0" that it changes during a build phase
+        # If this isn't fixed, it gets a vague "ERROR: No matching distribution for sqlmodel..." error
         patchPhase = builtins.concatStringsSep "\n" [
           (old.patchPhase or "")
-          # sqlmodel's pyproject.toml lists version = "0" that it changes during a build phase
-          # If this isn't fixed, it gets a vague "ERROR: No matching distribution for sqlmodel..." error
           ''
             substituteInPlace "pyproject.toml" --replace 'version = "0"' 'version = "${old.version}"'
           ''
