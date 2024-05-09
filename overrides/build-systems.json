@@ -1175,6 +1175,10 @@
       "until": "23.1.0"
     },
     {
+      "buildSystem": "flit-core",
+      "from": "21.2.0"
+    },
+    {
       "buildSystem": "hatch-fancy-pypi-readme",
       "from": "23.1.0"
     },
@@ -11485,7 +11489,10 @@
   "matplotlib": [
     "oldest-supported-numpy",
     "setuptools",
-    "setuptools-scm"
+    {
+      "buildSystem": "setuptools-scm",
+      "from": "3.5.0"
+    }
   ],
   "matplotlib-inline": [
     "setuptools"
@@ -11834,6 +11841,9 @@
     "setuptools"
   ],
   "minikerberos": [
+    "setuptools"
+  ],
+  "minimal-snowplow-tracker": [
     "setuptools"
   ],
   "minimock": [
